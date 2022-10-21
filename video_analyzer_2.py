@@ -4,8 +4,14 @@ from tkinter import filedialog
 import PIL.Image, PIL.ImageTk
 import numpy as np
 import csv
+import os
 
 tracks_enabled = True
+
+try:
+    os.mkdir('Output')
+except FileExistsError:
+    pass
 
 
 class CapturedVideo:
@@ -50,7 +56,8 @@ class DisplayApp:
         self.show_mode.set('M')
         self.background_subtractor = StringVar()
         self.background_subtractor.set('MOG')
-        self.shadows = 0
+        self.shadows = IntVar()
+        self.shadows.set(0)
         self.start_after_hist = IntVar()
         self.start_after_hist.set(1)
         self.stopped = IntVar()
@@ -109,6 +116,13 @@ class DisplayApp:
 
         Checkbutton(self.ButtonFrame, text='Track motion after [history] number of frames', variable=self.start_after_hist, onvalue=1, offvalue=0).grid(row=row,
                                                                                                               column=column)
+        row += 1
+
+        Label(self.ButtonFrame, text='Process this many frames (-1 means "all")').grid(row=row, column=column)
+        row += 1
+        self.framesEntry = Entry(self.ButtonFrame)
+        self.framesEntry.grid(row=row, column=column)
+        self.framesEntry.insert(0, '-1')
         row += 1
         Label(self.ButtonFrame, text='').grid(row=row, column=column)
         row += 1
@@ -177,6 +191,7 @@ class DisplayApp:
 
     def openvideofile(self):
         path = filedialog.askopenfilename()
+        self.vid_name = os.path.basename(path).split('.')[0]
         self.vid = CapturedVideo(path)
         self.canvas = Canvas(self.VideoFrame, width = self.vid.width, height = self.vid.height)
         self.canvas.grid(row=0, column = 0)
@@ -233,17 +248,24 @@ class DisplayApp:
         # grab weights
         hist = int(self.histEntry.get())
         var = int(self.varEntry.get())
+        frames = int(self.framesEntry.get())
+        detect_shadows = False
+        if self.shadows.get() == 1:
+            detect_shadows = True
         if self.background_subtractor.get() == 'MOG':
-            fgbg = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=var, detectShadows=self.shadows)
+            fgbg = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=var, detectShadows=detect_shadows)
         else:
-            fgbg = cv2.createBackgroundSubtractorKNN(history=hist, dist2Threshold=var, detectShadows=self.shadows)
+            fgbg = cv2.createBackgroundSubtractorKNN(history=hist, dist2Threshold=var, detectShadows=detect_shadows)
         # set up list to take positions of movers
         moverslist = []
         # iterate through frames
         start = 0
         if self.start_after_hist.get() == 1:
             start = hist
-        for x in range(start, int(self.vid.count_frames())):
+        end = int(self.vid.count_frames())
+        if frames > 0:
+            end = start + frames
+        for x in range(start, end):
             ret, f = self.vid.get_frame(x)
             fgmask = fgbg.apply(f)
             # analyze
@@ -276,31 +298,35 @@ class DisplayApp:
             if self.stopped.get() == 1:
                 break
 
-        tracks = self.makeTracks(moverslist)
+        tracks, track_summaries = self.makeTracks(moverslist)
         if tracks_enabled:
             for t in tracks:
                 for x in range(1, len(t)-1):
-                    (xt, yt) = t[x-1]
-                    (xt1, yt1) = t[x]
-                    cv2.line(tempmask, (xt,yt),(xt1, yt1), (0, 0, 255), 1)
+                    (xt, yt, area) = t[x-1]
+                    (xt1, yt1, area2) = t[x]
+                    cv2.line(tempmask, (xt, yt), (xt1, yt1), (0, 0, 255), 1)
             # write out
-            cv2.imwrite('tracks.png', tempmask)
+            cv2.imwrite('Output/' + self.vid_name + ' tracks.png', tempmask)
             try:
-                cv2.imwrite('screenshot.png', f)
+                cv2.imwrite('Output/' + self.vid_name + ' screenshot.png', f)
             except cv2.error:
                 print('Could not save screenshot')
-        self.writeout(tracks)
+        self.writeout(track_summaries)
 
     def optical_flow(self):
         self.stopped_button.deselect()
         intensity_thresh = int(self.varEntry.get())
         winsize = int(self.histEntry.get())
+        frames = int(self.framesEntry.get())
         hsv = np.zeros_like(self.vid.get_frame(0)[1])
         hsv[..., 1] = 255
         # set up list to take positions of movers
         moverslist = []
         start = 1
-        for x in range(start, int(self.vid.count_frames())):
+        end = int(self.vid.count_frames())
+        if frames > 0:
+            end = start + frames
+        for x in range(start, end):
             ret_old, f_old = self.vid.get_frame(x - 1)
             ret_new, f_new = self.vid.get_frame(x)
             f_old_gr = cv2.cvtColor(f_old, cv2.COLOR_BGR2GRAY)
@@ -346,14 +372,30 @@ class DisplayApp:
             if self.stopped.get() == 1:
                 break
 
+        tracks, track_summaries = self.makeTracks(moverslist)
+        if tracks_enabled:
+            for t in tracks:
+                for x in range(1, len(t) - 1):
+                    (xt, yt, area) = t[x - 1]
+                    (xt1, yt1, area2) = t[x]
+                    cv2.line(tempmask, (xt, yt), (xt1, yt1), (0, 0, 255), 1)
+            # write out
+            cv2.imwrite('Output/' + self.vid_name + ' tracks.png', tempmask)
+            try:
+                cv2.imwrite('Output/' + self.vid_name + ' screenshot.png', f_new)
+            except cv2.error:
+                print('Could not save screenshot')
+        self.writeout(track_summaries)
+
     def test(self):
         pass
 
     def writeout(self, tracks):
-        with open('Tracks.csv', 'w', newline='') as csvfile:
+        with open('Output/' + self.vid_name + ' Tracks.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
+            writer.writerow(['Time_of_track', 'Avg_area_of_mover', 'Distance_of_track'])
             for track in tracks:
-                writer.writerow([len(track)])
+                writer.writerow(track)
 
     def makeTracks(self, moverslist):
         tracks = []
@@ -375,11 +417,20 @@ class DisplayApp:
                         tracks[track].append([cX, cY, area])
                     else:
                         tracks.append([[cX, cY, area]])
-        largetracks = []
-        for t in tracks:
-            if len(t) > 10:
-                largetracks.append(t)
-        return largetracks
+        track_summaries = []
+        for track in tracks:
+            sum_area = 0
+            sum_distance = 0
+            for x in range(0, len(track) - 1):
+                moment = track[x]
+                sum_area += moment[2]
+                if x > 0:  # wait until second item
+                    old_moment = track[x - 1]
+                    d = (((moment[0] - old_moment[0]) ** 2) + ((moment[1] - old_moment[1]) ** 2)) ** 0.5
+                    sum_distance += d
+            track_summaries.append([len(track), sum_area / len(track), sum_distance])
+
+        return tracks, track_summaries
 
 
 
