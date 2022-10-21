@@ -53,7 +53,10 @@ class DisplayApp:
         self.background_subtractor = StringVar()
         self.background_subtractor.set('MOG')
         self.shadows = 0
-        self.start_after_hist = 1
+        self.start_after_hist = IntVar()
+        self.start_after_hist.set(1)
+        self.stopped = IntVar()
+        self.stopped.set(0)
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.make_frames()
@@ -142,6 +145,10 @@ class DisplayApp:
         row += 1
         Button(self.ButtonFrame, text="Test", command=self.test).grid(row=row, column=column)
         row += 1
+        self.stopped_button = Checkbutton(self.ButtonFrame, text='Stop running analysis', variable=self.stopped,
+                                          onvalue=1, offvalue=0, indicatoron=False)
+        self.stopped_button.grid(row=row, column=column)
+        row += 1
 
     def openvideofile(self):
         path = filedialog.askopenfilename()
@@ -175,6 +182,7 @@ class DisplayApp:
         self.showframe()
 
     def movers_background_subtract(self):
+        self.stopped_button.deselect()  # un-stop us when you click this
         # grab weights
         hist = int(self.histEntry.get())
         var = int(self.varEntry.get())
@@ -187,7 +195,7 @@ class DisplayApp:
         moverslist = []
         # iterate through frames
         start = 0
-        if self.start_after_hist == 1:
+        if self.start_after_hist.get() == 1:
             start = hist
         for x in range(start, int(self.vid.count_frames())):
             ret, f = self.vid.get_frame(x)
@@ -226,6 +234,10 @@ class DisplayApp:
             self.canvas.create_image(0, 0, image=self.photo, anchor=NW)
             self.canvas.update_idletasks()
             self.Notifications.insert((1.0), 'Frame ' + str(x) + '\n')
+            self.AppParent.update()
+            if self.stopped.get() == 1:
+                break
+
         tracks = self.makeTracks(moverslist)
         if tracks_enabled:
             for t in tracks:
@@ -242,6 +254,7 @@ class DisplayApp:
         self.writeout(tracks)
 
     def test(self):
+        self.stopped_button.deselect()
         hsv = np.zeros_like(self.vid.get_frame(0)[1])
         hsv[..., 1] = 255
         start = 1
@@ -258,7 +271,10 @@ class DisplayApp:
             self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(bgr))
             self.canvas.create_image(0, 0, image=self.photo, anchor=NW)
             self.canvas.update_idletasks()
-            self.Notifications.insert((1.0), 'Frame ' + str(x) + '\n')
+            self.Notifications.insert((1.0), 'Frame ' + str(x) + ':' + str(self.stopped.get()) + '\n')
+            self.AppParent.update()
+            if self.stopped.get() == 1:
+                break
 
     def writeout(self, tracks):
         with open('Tracks.csv', 'w', newline='') as csvfile:
