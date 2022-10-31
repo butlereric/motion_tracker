@@ -269,6 +269,10 @@ class DisplayApp:
             ret, f = self.vid.get_frame(x)
             fgmask = fgbg.apply(f)
             # analyze
+            min_size = int(self.size_filter_min.get())
+            kernel = np.ones((min_size, min_size), np.uint8)
+            fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
+            fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, kernel)
             contours, hierarchy = cv2.findContours(fgmask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             bigconts, templist = self.size_filter_func(contours)
             moverslist.append(templist)
