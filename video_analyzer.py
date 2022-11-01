@@ -52,6 +52,7 @@ class DisplayApp:
     def __init__(self, root):
         self.AppParent = root
         self.AppParent.title('Video Analyzer')
+        self.menu = Menu(root)
         self.show_mode = StringVar()
         self.show_mode.set('M')
         self.background_subtractor = StringVar()
@@ -69,6 +70,7 @@ class DisplayApp:
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.make_frames()
+        self.make_menus()
 
     def make_frames(self):  # sets up grid for window
         self.ButtonFrame = Frame(self.MainFrame, padx=10, pady=10)
@@ -85,8 +87,6 @@ class DisplayApp:
     def make_buttons(self):  # makes buttons in ButtonFrame
         row = 0
         column = 0
-        Button(self.ButtonFrame, text="Open Video File", command=self.openvideofile).grid(row=row, column=column)
-        row += 1
         Button(self.ButtonFrame, text="Frame forward", command=self.frameforward).grid(row=row, column=column)
         row += 1
         Button(self.ButtonFrame, text="Frame backward", command=self.framebackward).grid(row=row, column=column)
@@ -180,6 +180,15 @@ class DisplayApp:
                                           onvalue=1, offvalue=0, indicatoron=False)
         self.stopped_button.grid(row=row, column=column)
         row += 1
+
+    def make_menus(self):
+        file = Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label='File', menu=file)
+        file.add_command(label='Open Video', command=self.openvideofile)
+        file.add_command(label='Open Video Folder', command=None)
+        file.add_command(label='Quit', command=root.destroy)
+
+        root.config(menu=self.menu)
 
     def change_labels_to_background_subtract(self):
         self.thresh_text.set('Threshold')
