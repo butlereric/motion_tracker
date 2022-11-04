@@ -67,14 +67,21 @@ class DisplayApp:
         self.hist_text.set('History Length')
         self.thresh_text = StringVar()
         self.thresh_text.set('Threshold')
+        self.mask_type = StringVar()
+        self.mask_type.set('Hole')
+        self.show_mask = IntVar()
+        self.show_mask.set(0)
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.make_frames()
         self.make_menus()
 
     def make_frames(self):  # sets up grid for window
-        self.ButtonFrame = Frame(self.MainFrame, padx=10, pady=10)
-        self.ButtonFrame.grid(row=0, column=0)
+        self.video_view_frame = Frame(self.MainFrame, padx=10, pady=10)
+        self.mask_frame = Frame(self.MainFrame, padx=10, pady=10)
+        self.morph_filter_frame = Frame(self.MainFrame, padx=10, pady=10)
+        self.motion_detect_options_frame = Frame(self.MainFrame, padx=10, pady=10)
+        self.video_view_frame.grid(row=0, column=0)
         self.VideoFrame = Frame(self.MainFrame, padx=10, pady=10)
         self.VideoFrame.grid(row=0, column=1)
         self.NotificationFrame = Frame(self.MainFrame, padx=10, pady=10)
@@ -82,104 +89,122 @@ class DisplayApp:
         self.Notifications = Text(self.NotificationFrame, height=5, width=40)
         self.Notifications.grid(row=0, column=0)
         self.framenum = 0
+        self.mask = np.array([])
         self.make_buttons()
 
     def make_buttons(self):  # makes buttons in ButtonFrame
+        # video view frame
+
         row = 0
         column = 0
-        Button(self.ButtonFrame, text="Frame forward", command=self.frameforward).grid(row=row, column=column)
+        Button(self.video_view_frame, text="Frame forward", command=self.frameforward).grid(row=row, column=column)
         row += 1
-        Button(self.ButtonFrame, text="Frame backward", command=self.framebackward).grid(row=row, column=column)
+        Button(self.video_view_frame, text="Frame backward", command=self.framebackward).grid(row=row, column=column)
         row += 1
-        self.frameScaler = Scale(self.ButtonFrame, from_=0, to_=100, orient = HORIZONTAL, command = self.changeframe)
+        self.frameScaler = Scale(self.video_view_frame, from_=0, to_=100, orient = HORIZONTAL, command = self.changeframe)
         self.frameScaler.grid(row=row, column=column)
         row += 1
 
-        Radiobutton(self.ButtonFrame, text="Show all motion", variable=self.show_mode, value='M').grid(
+        Radiobutton(self.video_view_frame, text="Show all motion", variable=self.show_mode, value='M').grid(
             row=row, column=column)
         row += 1
-        Radiobutton(self.ButtonFrame, text="Show size-filtered motion", variable=self.show_mode, value='F').grid(row=row,
+        Radiobutton(self.video_view_frame, text="Show size-filtered motion", variable=self.show_mode, value='F').grid(row=row,
                                             column=column)
         row += 1
-        Radiobutton(self.ButtonFrame, text="Show unprocessed frame", variable=self.show_mode, value='R').grid(row=row,
+        Radiobutton(self.video_view_frame, text="Show unprocessed frame", variable=self.show_mode, value='R').grid(row=row,
                                             column=column)
         row += 1
-        Radiobutton(self.ButtonFrame, text="Show normal frame with size-filtered motion", variable=self.show_mode, value='Q').grid(row=row,
+        Radiobutton(self.video_view_frame, text="Show normal frame with size-filtered motion", variable=self.show_mode, value='Q').grid(row=row,
                                                                                                               column=column)
         row += 1
-        Label(self.ButtonFrame, text='').grid(row=row, column=column)
+        Label(self.video_view_frame, text='').grid(row=row, column=column)
         row += 1
 
-        Checkbutton(self.ButtonFrame, text='Mark shadows', variable=self.shadows, onvalue=1, offvalue=0).grid(row=row,
-                                                                                                              column=column)
-        row += 1
-
-        Checkbutton(self.ButtonFrame, text='Track motion after [history] number of frames', variable=self.start_after_hist, onvalue=1, offvalue=0).grid(row=row,
+        Checkbutton(self.video_view_frame, text='Mark shadows', variable=self.shadows, onvalue=1, offvalue=0).grid(row=row,
                                                                                                               column=column)
         row += 1
 
-        Label(self.ButtonFrame, text='Process this many frames (-1 means "all")').grid(row=row, column=column)
+        Checkbutton(self.video_view_frame, text='Track motion after [history] number of frames', variable=self.start_after_hist, onvalue=1, offvalue=0).grid(row=row,
+                                                                                                              column=column)
         row += 1
-        self.framesEntry = Entry(self.ButtonFrame)
+
+        Label(self.video_view_frame, text='Process this many frames (-1 means "all")').grid(row=row, column=column)
+        row += 1
+        self.framesEntry = Entry(self.video_view_frame)
         self.framesEntry.grid(row=row, column=column)
         self.framesEntry.insert(0, '-1')
         row += 1
-        Label(self.ButtonFrame, text='').grid(row=row, column=column)
+        Label(self.video_view_frame, text='').grid(row=row, column=column)
         row += 1
 
-        Radiobutton(self.ButtonFrame, text="Use MOG background subtraction", variable=self.background_subtractor,
-                    value='MOG', command=self.change_labels_to_background_subtract).grid(row=row,
+        Radiobutton(self.video_view_frame, text="Use MOG background subtraction", variable=self.background_subtractor,
+                    value='MOG').grid(row=row,
                                                                                                               column=column)
         row += 1
-        Radiobutton(self.ButtonFrame, text="Use KNN background subtraction", variable=self.background_subtractor,
-                    value='KNN', command=self.change_labels_to_background_subtract).grid(row=row,
+        Radiobutton(self.video_view_frame, text="Use KNN background subtraction", variable=self.background_subtractor,
+                    value='KNN').grid(row=row,
                                     column=column)
         row += 1
-        Radiobutton(self.ButtonFrame, text="Use optical flow", variable=self.background_subtractor,
-                    value='Flow', command=self.change_labels_to_optical_flow).grid(row=row,
+        Radiobutton(self.video_view_frame, text="Use optical flow", variable=self.background_subtractor,
+                    value='Flow').grid(row=row,
                                       column=column)
         row += 1
-        Label(self.ButtonFrame, text='').grid(row=row,column=column)
+        Label(self.video_view_frame, text='').grid(row=row,column=column)
         row += 1
 
-        Label(self.ButtonFrame, text="Variables relating to analysis").grid(row=row,column=column)
+        Button(self.video_view_frame, text="Analyze", command=self.analyze).grid(row=row, column=column)
         row += 1
-        self.hist_label = Label(self.ButtonFrame, textvariable=self.hist_text)
+        # Button(self.ButtonFrame, text="Test", command=self.test).grid(row=row, column=column)
+        # row += 1
+        self.stopped_button = Checkbutton(self.video_view_frame, text='Stop running analysis', variable=self.stopped,
+                                          onvalue=1, offvalue=0, indicatoron=False)
+        self.stopped_button.grid(row=row, column=column)
+        row += 1
+
+        # motion detect options frame
+
+        Label(self.motion_detect_options_frame, text="Variables relating to analysis").grid(row=row,column=column)
+        row += 1
+        self.hist_label = Label(self.motion_detect_options_frame, textvariable=self.hist_text)
         self.hist_label.grid(row=row, column=column)
         row += 1
-        self.histEntry = Entry(self.ButtonFrame)
+        self.histEntry = Entry(self.motion_detect_options_frame)
         self.histEntry.grid(row=row, column=column)
-        self.histEntry.insert(0, '50')
+        self.histEntry.insert(0, '500')
         row += 1
-        self.thresh_label = Label(self.ButtonFrame, textvariable=self.thresh_text)
+        self.thresh_label = Label(self.motion_detect_options_frame, textvariable=self.thresh_text)
         self.thresh_label.grid(row=row, column=column)
         row += 1
-        self.varEntry = Entry(self.ButtonFrame)
+        self.varEntry = Entry(self.motion_detect_options_frame)
         self.varEntry.grid(row=row, column=column)
         self.varEntry.insert(0, '20')
         row += 1
-        Label(self.ButtonFrame, text="Minimum size filter").grid(row=row, column=column)
-        row += 1
-        self.size_filter_min = Entry(self.ButtonFrame)
-        self.size_filter_min.grid(row=row, column=column)
-        self.size_filter_min.insert(0, '20')
-        row += 1
 
-        Label(self.ButtonFrame, text="Maximum size filter").grid(row=row, column=column)
+        # morph filter frame
+
+        Label(self.morph_filter_frame, text="Minimum size filter").grid(row=row, column=column)
         row += 1
-        self.size_filter_max = Entry(self.ButtonFrame)
+        self.size_filter_min = Entry(self.morph_filter_frame)
+        self.size_filter_min.grid(row=row, column=column)
+        self.size_filter_min.insert(0, '3')
+        row += 1
+        Label(self.morph_filter_frame, text="Maximum size filter").grid(row=row, column=column)
+        row += 1
+        self.size_filter_max = Entry(self.morph_filter_frame)
         self.size_filter_max.grid(row=row, column=column)
         self.size_filter_max.insert(0, '200')
         row += 1
 
-        Button(self.ButtonFrame, text="Analyze", command=self.analyze).grid(row=row, column=column)
+        # mask filter frame
+        Button(self.mask_frame, text="Fill frame with black", command=self.fill_mask_black).grid(row=row, column=column)
         row += 1
-        #Button(self.ButtonFrame, text="Test", command=self.test).grid(row=row, column=column)
-        #row += 1
-        self.stopped_button = Checkbutton(self.ButtonFrame, text='Stop running analysis', variable=self.stopped,
-                                          onvalue=1, offvalue=0, indicatoron=False)
-        self.stopped_button.grid(row=row, column=column)
+        Radiobutton(self.mask_frame, text="Cut a hole", variable=self.mask_type,
+                    value='Hole').grid(row=row,
+                                       column=column)
         row += 1
+        Radiobutton(self.mask_frame, text="Draw a blob", variable=self.mask_type,
+                    value='Blob').grid(row=row,
+                                       column=column)
 
     def make_menus(self):
         file = Menu(self.menu, tearoff=0)
@@ -188,15 +213,37 @@ class DisplayApp:
         file.add_command(label='Open Video Folder', command=None)
         file.add_command(label='Quit', command=root.destroy)
 
+        show = Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label='Show', menu=show)
+        show.add_command(label='Video Playback and Analysis', command=self.show_video_frame)
+        show.add_command(label='Morphological Filters', command=self.show_morph_filters)
+        show.add_command(label='Mask Options', command=self.show_mask_frame)
+        show.add_command(label='Motion Detection Options', command=self.show_motion_detect_options)
+
         root.config(menu=self.menu)
 
-    def change_labels_to_background_subtract(self):
-        self.thresh_text.set('Threshold')
-        self.hist_text.set('History Length')
+    def clear_frames(self):
+        self.show_mask.set(0)
+        for frame in [self.morph_filter_frame, self.video_view_frame, self.motion_detect_options_frame, self.mask_frame]:
+            frame.grid_forget()
 
-    def change_labels_to_optical_flow(self):
-        self.thresh_text.set('Intensity threshold')
-        self.hist_text.set('Averaging window size')
+    def show_morph_filters(self):
+        self.clear_frames()
+        self.morph_filter_frame.grid(row=0, column=0)
+
+    def show_video_frame(self):
+        self.clear_frames()
+        self.video_view_frame.grid(row=0, column=0)
+
+    def show_mask_frame(self):
+        self.clear_frames()
+        self.show_mask.set(1)
+        self.mask_frame.grid(row=0, column=0)
+        self.make_mask()
+
+    def show_motion_detect_options(self):
+        self.clear_frames()
+        self.motion_detect_options_frame.grid(row=0, column=0)
 
     def openvideofile(self):
         path = filedialog.askopenfilename()
@@ -204,7 +251,7 @@ class DisplayApp:
         self.vid = CapturedVideo(path)
         self.canvas = Canvas(self.VideoFrame, width = self.vid.width, height = self.vid.height)
         self.canvas.grid(row=0, column = 0)
-        self.mask = np.zeros((self.vid.height, self.vid.width), dtype=np.uint8)
+        self.mask = np.ones((self.vid.height, self.vid.width), dtype=np.uint8)
         length = self.vid.count_frames()
         self.frameScaler.config(to_=length)
         self.framenum = 0
@@ -213,7 +260,16 @@ class DisplayApp:
     def showframe(self):
         ret, frame = self.vid.get_frame(self.framenum)
         if ret:  # ret is a True/False for frame existence
-            self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(frame))
+            if self.show_mask.get() == 1:  # showing mask
+                dark_frame = np.multiply(frame, 0.7)
+                mask = cv2.bitwise_and(dark_frame, dark_frame, mask=cv2.bitwise_not(self.mask))
+                frame = cv2.bitwise_and(frame, frame, mask=self.mask)
+                cv2.imwrite('frame.png', frame)
+                cv2.imwrite('mask.png', mask)
+                cv2.imwrite('self mask.png', self.mask)
+                cv2.imwrite('invert mask.png', cv2.bitwise_not(self.mask))
+                frame = frame + mask
+            self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(frame.astype(np.uint8)))
             self.canvas.create_image(0, 0, image=self.photo, anchor=NW)
         self.Notifications.insert((1.0), 'Showing frame ' + str(self.framenum) + '\n')
 
@@ -235,6 +291,17 @@ class DisplayApp:
             self.optical_flow()
         else:
             self.movers_background_subtract()
+
+    def make_mask(self):
+        if self.mask.shape == self.vid.get_frame(0)[1].shape:
+            pass
+        else:
+            self.mask = np.ones((self.vid.height, self.vid.width), dtype=np.uint8)
+            self.showframe()
+
+    def fill_mask_black(self):
+        self.mask = np.zeros((self.vid.height, self.vid.width), dtype=np.uint8)
+        self.showframe()
 
     def size_filter_func(self, contours):
         min_size = int(self.size_filter_min.get())
@@ -328,9 +395,9 @@ class DisplayApp:
 
     def optical_flow(self):
         self.stopped_button.deselect()
-        intensity_thresh = int(self.varEntry.get())
-        winsize = int(self.histEntry.get())
-        frames = int(self.framesEntry.get())
+        intensity_thresh = 50
+        winsize = 5
+        frames = 50
         hsv = np.zeros_like(self.vid.get_frame(0)[1])
         hsv[..., 1] = 255
         # set up list to take positions of movers
