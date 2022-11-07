@@ -71,6 +71,7 @@ class DisplayApp:
         self.mask_type.set('Hole')
         self.show_mask = IntVar()
         self.show_mask.set(0)
+        self.mask_intensity_level = 0.7
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.make_frames()
@@ -196,7 +197,12 @@ class DisplayApp:
         row += 1
 
         # mask filter frame
-        Button(self.mask_frame, text="Fill frame with black", command=self.fill_mask_black).grid(row=row, column=column)
+        Button(self.mask_frame, text="Fill mask with black", command=self.fill_mask_black).grid(row=row, column=column)
+        row += 1
+        Button(self.mask_frame, text="Fill mask with white", command=self.fill_mask_white).grid(row=row, column=column)
+        row += 1
+        self.mask_intensity = Scale(self.mask_frame, from_=0, to_=100, orient=HORIZONTAL, command=self.change_mask_intensity)
+        self.mask_intensity.grid(row=row, column=column)
         row += 1
         Radiobutton(self.mask_frame, text="Cut a hole", variable=self.mask_type,
                     value='Hole').grid(row=row,
@@ -251,7 +257,7 @@ class DisplayApp:
         self.vid = CapturedVideo(path)
         self.canvas = Canvas(self.VideoFrame, width = self.vid.width, height = self.vid.height)
         self.canvas.grid(row=0, column = 0)
-        self.mask = np.ones((self.vid.height, self.vid.width), dtype=np.uint8)
+        self.mask = np.multiply(np.ones((self.vid.height, self.vid.width), dtype=np.uint8), 255)
         length = self.vid.count_frames()
         self.frameScaler.config(to_=length)
         self.framenum = 0
@@ -261,13 +267,9 @@ class DisplayApp:
         ret, frame = self.vid.get_frame(self.framenum)
         if ret:  # ret is a True/False for frame existence
             if self.show_mask.get() == 1:  # showing mask
-                dark_frame = np.multiply(frame, 0.7)
+                dark_frame = np.multiply(frame, self.mask_intensity_level)
                 mask = cv2.bitwise_and(dark_frame, dark_frame, mask=cv2.bitwise_not(self.mask))
                 frame = cv2.bitwise_and(frame, frame, mask=self.mask)
-                cv2.imwrite('frame.png', frame)
-                cv2.imwrite('mask.png', mask)
-                cv2.imwrite('self mask.png', self.mask)
-                cv2.imwrite('invert mask.png', cv2.bitwise_not(self.mask))
                 frame = frame + mask
             self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(frame.astype(np.uint8)))
             self.canvas.create_image(0, 0, image=self.photo, anchor=NW)
@@ -296,11 +298,19 @@ class DisplayApp:
         if self.mask.shape == self.vid.get_frame(0)[1].shape:
             pass
         else:
-            self.mask = np.ones((self.vid.height, self.vid.width), dtype=np.uint8)
+            self.mask = np.multiply(np.ones((self.vid.height, self.vid.width), dtype=np.uint8), 255)
             self.showframe()
 
     def fill_mask_black(self):
         self.mask = np.zeros((self.vid.height, self.vid.width), dtype=np.uint8)
+        self.showframe()
+
+    def fill_mask_white(self):
+        self.mask = np.multiply(np.ones((self.vid.height, self.vid.width), dtype=np.uint8), 255)
+        self.showframe()
+
+    def change_mask_intensity(self, x):
+        self.mask_intensity_level = (100 - int(x)) / 100
         self.showframe()
 
     def size_filter_func(self, contours):
