@@ -74,6 +74,7 @@ class DisplayApp:
         self.mask_intensity_level = 0.7
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
+        self.click_locations = []
         self.make_frames()
         self.make_menus()
 
@@ -85,6 +86,7 @@ class DisplayApp:
         self.video_view_frame.grid(row=0, column=0)
         self.VideoFrame = Frame(self.MainFrame, padx=10, pady=10)
         self.VideoFrame.grid(row=0, column=1)
+        self.VideoFrame.bind_all('<Button-1>', self.canvas_click_event)
         self.NotificationFrame = Frame(self.MainFrame, padx=10, pady=10)
         self.NotificationFrame.grid(row=1, column=0)
         self.Notifications = Text(self.NotificationFrame, height=5, width=40)
@@ -203,14 +205,18 @@ class DisplayApp:
         row += 1
         self.mask_intensity = Scale(self.mask_frame, from_=0, to_=100, orient=HORIZONTAL, command=self.change_mask_intensity)
         self.mask_intensity.grid(row=row, column=column)
+        self.mask_intensity.set(self.mask_intensity_level * 100)
         row += 1
         Radiobutton(self.mask_frame, text="Cut a hole", variable=self.mask_type,
-                    value='Hole').grid(row=row,
+                    value='Hole', command=self.clear_click_locations).grid(row=row,
                                        column=column)
         row += 1
         Radiobutton(self.mask_frame, text="Draw a blob", variable=self.mask_type,
-                    value='Blob').grid(row=row,
+                    value='Blob', command=self.clear_click_locations).grid(row=row,
                                        column=column)
+        row += 1
+        Button(self.mask_frame, text="New mask object", command=self.clear_click_locations).grid(row=row, column=column)
+        row += 1
 
     def make_menus(self):
         file = Menu(self.menu, tearoff=0)
@@ -230,6 +236,7 @@ class DisplayApp:
 
     def clear_frames(self):
         self.show_mask.set(0)
+        self.click_locations = []
         for frame in [self.morph_filter_frame, self.video_view_frame, self.motion_detect_options_frame, self.mask_frame]:
             frame.grid_forget()
 
@@ -312,6 +319,22 @@ class DisplayApp:
     def change_mask_intensity(self, x):
         self.mask_intensity_level = (100 - int(x)) / 100
         self.showframe()
+
+    def clear_click_locations(self):
+        self.click_locations = []
+
+    def canvas_click_event(self, event):
+        if str(type(event.widget)) == "<class 'tkinter.Canvas'>":  # only trigger when click is on canvas
+            if self.show_mask.get() == 1:  # modifying mask
+                self.click_locations.append((event.x, event.y))
+                if len(self.click_locations) > 1:
+                    pts = np.array(self.click_locations, np.int32)
+                    pts = pts.reshape((-1, 1, 2))
+                    if self.mask_type.get() == 'Hole':
+                        self.mask = cv2.fillPoly(self.mask, [pts], 255)
+                    else:
+                        self.mask = cv2.fillPoly(self.mask, [pts], 0)
+                    self.showframe()
 
     def size_filter_func(self, contours):
         min_size = int(self.size_filter_min.get())
