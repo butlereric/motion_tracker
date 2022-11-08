@@ -1,6 +1,7 @@
 import cv2
 from tkinter import *
 from tkinter import filedialog
+from tkinter import ttk
 import PIL.Image, PIL.ImageTk
 import numpy as np
 import csv
@@ -79,10 +80,15 @@ class DisplayApp:
         self.make_menus()
 
     def make_frames(self):  # sets up grid for window
-        self.video_view_frame = Frame(self.MainFrame, padx=10, pady=10)
-        self.mask_frame = Frame(self.MainFrame, padx=10, pady=10)
-        self.morph_filter_frame = Frame(self.MainFrame, padx=10, pady=10)
-        self.motion_detect_options_frame = Frame(self.MainFrame, padx=10, pady=10)
+        self.tabbed_frame = ttk.Notebook(self.MainFrame)
+        self.tabbed_frame.grid(row=0, column=0)
+        self.video_view_frame = ttk.Frame(self.tabbed_frame)
+        self.mask_frame = ttk.Frame(self.tabbed_frame)
+        self.morph_filter_frame = ttk.Frame(self.tabbed_frame)
+        self.motion_detect_options_frame = ttk.Frame(self.tabbed_frame)
+        for tab, label in [[self.video_view_frame, 'Video View'], [self.mask_frame, 'Mask Editing'],
+                           [self.morph_filter_frame, 'Filter'], [self.motion_detect_options_frame, 'Detection Options']]:
+            self.tabbed_frame.add(tab, text=label)
         self.video_view_frame.grid(row=0, column=0)
         self.VideoFrame = Frame(self.MainFrame, padx=10, pady=10)
         self.VideoFrame.grid(row=0, column=1)
@@ -374,9 +380,14 @@ class DisplayApp:
         end = int(self.vid.count_frames())
         if frames > 0:
             end = start + frames
+        can_run = True
+        if start > end:
+            self.Notifications.insert((1.0), 'Starting frame is past end of clip\n')
+            can_run = False
         for x in range(start, end):
             ret, f = self.vid.get_frame(x)
-            fgmask = fgbg.apply(f)
+            masked_f = cv2.bitwise_and(f, f, mask=self.mask)
+            fgmask = fgbg.apply(masked_f)
             # analyze
             min_size = int(self.size_filter_min.get())
             kernel = np.ones((min_size, min_size), np.uint8)
@@ -412,14 +423,17 @@ class DisplayApp:
                 break
 
         tracks, track_summaries = self.makeTracks(moverslist)
-        if tracks_enabled:
+        if tracks_enabled and can_run:
             for t in tracks:
                 for x in range(1, len(t)-1):
                     (xt, yt, area) = t[x-1]
                     (xt1, yt1, area2) = t[x]
                     cv2.line(tempmask, (xt, yt), (xt1, yt1), (0, 0, 255), 1)
             # write out
-            cv2.imwrite('Output/' + self.vid_name + ' tracks.png', tempmask)
+            try:
+                cv2.imwrite('Output/' + self.vid_name + ' tracks.png', tempmask)
+            except UnboundLocalError:
+                print('Could not save tracks')
             try:
                 cv2.imwrite('Output/' + self.vid_name + ' screenshot.png', f)
             except cv2.error:
