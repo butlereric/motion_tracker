@@ -89,7 +89,7 @@ class DisplayApp:
         for tab, label in [[self.video_view_frame, 'Video View'], [self.mask_frame, 'Mask Editing'],
                            [self.morph_filter_frame, 'Filter'], [self.motion_detect_options_frame, 'Detection Options']]:
             self.tabbed_frame.add(tab, text=label)
-        self.video_view_frame.grid(row=0, column=0)
+        self.tabbed_frame.grid(row=0, column=0)
         self.VideoFrame = Frame(self.MainFrame, padx=10, pady=10)
         self.VideoFrame.grid(row=0, column=1)
         self.VideoFrame.bind_all('<Button-1>', self.canvas_click_event)
@@ -103,7 +103,6 @@ class DisplayApp:
 
     def make_buttons(self):  # makes buttons in ButtonFrame
         # video view frame
-
         row = 0
         column = 0
         Button(self.video_view_frame, text="Frame forward", command=self.frameforward).grid(row=row, column=column)
@@ -163,15 +162,12 @@ class DisplayApp:
 
         Button(self.video_view_frame, text="Analyze", command=self.analyze).grid(row=row, column=column)
         row += 1
-        # Button(self.ButtonFrame, text="Test", command=self.test).grid(row=row, column=column)
-        # row += 1
         self.stopped_button = Checkbutton(self.video_view_frame, text='Stop running analysis', variable=self.stopped,
                                           onvalue=1, offvalue=0, indicatoron=False)
         self.stopped_button.grid(row=row, column=column)
         row += 1
 
         # motion detect options frame
-
         Label(self.motion_detect_options_frame, text="Variables relating to analysis").grid(row=row,column=column)
         row += 1
         self.hist_label = Label(self.motion_detect_options_frame, textvariable=self.hist_text)
@@ -190,7 +186,6 @@ class DisplayApp:
         row += 1
 
         # morph filter frame
-
         Label(self.morph_filter_frame, text="Minimum size filter").grid(row=row, column=column)
         row += 1
         self.size_filter_min = Entry(self.morph_filter_frame)
@@ -230,13 +225,6 @@ class DisplayApp:
         file.add_command(label='Open Video', command=self.openvideofile)
         file.add_command(label='Open Video Folder', command=None)
         file.add_command(label='Quit', command=root.destroy)
-
-        show = Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label='Show', menu=show)
-        show.add_command(label='Video Playback and Analysis', command=self.show_video_frame)
-        show.add_command(label='Morphological Filters', command=self.show_morph_filters)
-        show.add_command(label='Mask Options', command=self.show_mask_frame)
-        show.add_command(label='Motion Detection Options', command=self.show_motion_detect_options)
 
         root.config(menu=self.menu)
 
