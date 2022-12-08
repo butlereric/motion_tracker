@@ -263,6 +263,7 @@ class DisplayApp:
         self.frameScaler.config(to_=length)
         self.framenum = 0
         self.showframe()
+        self.read_in_vars()
 
     def showframe(self):
         ret, frame = self.vid.get_frame(self.framenum)
@@ -290,6 +291,7 @@ class DisplayApp:
         self.showframe()
 
     def analyze(self):
+        self.write_vars_to_file()
         if self.background_subtractor.get() == 'Flow':  # use optical flow
             self.optical_flow()
         else:
@@ -504,6 +506,40 @@ class DisplayApp:
 
     def test(self):
         pass
+
+    def write_vars_to_file(self):
+        hist = int(self.histEntry.get())
+        var = int(self.varEntry.get())
+        frames = int(self.framesEntry.get())
+        min_size = int(self.size_filter_min.get())
+        max_size = int(self.size_filter_max.get())
+        vars = [
+            ['hist', hist],
+            ['var', var],
+            ['frames', frames],
+            ['filter_1', min_size],
+            ['filter_2', max_size]
+        ]
+        with open('saved_program_state.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            for x in vars:
+                writer.writerow(x)
+
+    def read_in_vars(self):
+        try:
+            with open('saved_program_state.csv', newline='') as csvfile:
+                reader = csv.reader(csvfile)
+                vars = [row for row in reader]
+                widgets_list = [self.histEntry, self.varEntry, self.framesEntry, self.size_filter_min,
+                                self.size_filter_max]
+                step = 0
+                for w in widgets_list:
+                    w.delete(0, END)
+                    w.insert(0, vars[step][1])
+                    step += 1
+        except FileNotFoundError:
+            pass
+
 
     def writeout(self, tracks):
         with open('Output/' + self.vid_name + ' Tracks.csv', 'w', newline='') as csvfile:
