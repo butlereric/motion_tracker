@@ -14,6 +14,11 @@ try:
 except FileExistsError:
     pass
 
+try:
+    os.mkdir('Masks')
+except FileExistsError:
+    pass
+
 
 class CapturedVideo:
     def __init__(self, video=0):
@@ -218,6 +223,8 @@ class DisplayApp:
         row += 1
         Button(self.mask_frame, text="New mask object", command=self.clear_click_locations).grid(row=row, column=column)
         row += 1
+        Button(self.mask_frame, text="Output Separate Mask File/s", command=self.output_separate_masks).grid(row=row, column=column)
+        row += 1
 
     def make_menus(self):
         file = Menu(self.menu, tearoff=0)
@@ -246,7 +253,9 @@ class DisplayApp:
         self.clear_frames()
         self.show_mask.set(1)
         self.mask_frame.grid(row=0, column=0)
-        self.make_mask()
+        if self.show_mask.get() == 0:
+            self.make_mask()
+        self.showframe()
 
     def show_motion_detect_options(self):
         self.clear_frames()
@@ -257,13 +266,14 @@ class DisplayApp:
         self.vid_name = os.path.basename(path).split('.')[0]
         self.vid = CapturedVideo(path)
         self.canvas = Canvas(self.VideoFrame, width = self.vid.width, height = self.vid.height)
-        self.canvas.grid(row=0, column = 0)
+        self.canvas.grid(row=0, column=0)
         self.mask = np.multiply(np.ones((self.vid.height, self.vid.width), dtype=np.uint8), 255)
         length = self.vid.count_frames()
         self.frameScaler.config(to_=length)
         self.framenum = 0
-        self.showframe()
         self.read_in_vars()
+        self.read_in_mask_files()
+        self.showframe()
 
     def showframe(self):
         ret, frame = self.vid.get_frame(self.framenum)
@@ -306,10 +316,12 @@ class DisplayApp:
 
     def fill_mask_black(self):
         self.mask = np.zeros((self.vid.height, self.vid.width), dtype=np.uint8)
+        self.show_mask.set(1)
         self.showframe()
 
     def fill_mask_white(self):
         self.mask = np.multiply(np.ones((self.vid.height, self.vid.width), dtype=np.uint8), 255)
+        self.show_mask.set(1)
         self.showframe()
 
     def change_mask_intensity(self, x):
@@ -331,6 +343,26 @@ class DisplayApp:
                     else:
                         self.mask = cv2.fillPoly(self.mask, [pts], 0)
                     self.showframe()
+
+    def output_separate_masks(self):
+        ret, frame = self.vid.get_frame(self.framenum)
+        if ret:  # ret is a True/False for frame existence
+            frame = np.clip(frame, a_min=15, a_max=255)  # prevents values in frame below 15
+            if self.show_mask.get() == 1:  # showing mask
+                frame = cv2.bitwise_and(frame, np.dstack((self.mask, self.mask, self.mask)))
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            cv2.imwrite('Masks/' + self.vid_name + '.png', rgb_frame)
+        self.Notifications.insert((1.0), 'Making mask file\n')
+
+    def read_in_mask_files(self):
+        try:
+            mask = cv2.imread('Masks/' + self.vid_name + '.png')
+            #self.mask = mask[:, :, 0]
+            ret, self.mask = cv2.threshold(mask[:, :, 0], 10, 255, cv2.THRESH_BINARY)
+            self.Notifications.insert((1.0), 'Found mask file\n')
+            self.show_mask.set(1)
+        except FileExistsError:
+            pass
 
     def size_filter_func(self, contours):
         min_size = int(self.size_filter_min.get())
