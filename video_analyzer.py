@@ -6,6 +6,7 @@ import PIL.Image, PIL.ImageTk
 import numpy as np
 import csv
 import os
+import pandas as pd
 
 tracks_enabled = True
 
@@ -78,6 +79,9 @@ class DisplayApp:
         self.show_mask = IntVar()
         self.show_mask.set(0)
         self.mask_intensity_level = 0.7
+        self.write_to_one_file = IntVar()
+        self.write_to_one_file.set(0)
+        self.persistent_data = pd.DataFrame({'Time_of_track': [], 'Avg_area_of_mover': [], 'Distance_of_track': []})
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.click_locations = []
@@ -170,6 +174,10 @@ class DisplayApp:
         self.stopped_button = Checkbutton(self.video_view_frame, text='Stop running analysis', variable=self.stopped,
                                           onvalue=1, offvalue=0, indicatoron=False)
         self.stopped_button.grid(row=row, column=column)
+        row += 1
+        Checkbutton(self.video_view_frame, text='Write everything to one file', variable=self.write_to_one_file, onvalue=1, offvalue=0).grid(
+            row=row,
+            column=column)
         row += 1
 
         # motion detect options frame
@@ -385,7 +393,7 @@ class DisplayApp:
             ret, self.mask = cv2.threshold(mask[:, :, 0], 10, 255, cv2.THRESH_BINARY)
             self.Notifications.insert((1.0), 'Found mask file\n')
             self.show_mask.set(1)
-        except FileExistsError:
+        except (FileExistsError, TypeError):
             pass
 
     def size_filter_func(self, contours):
@@ -598,13 +606,17 @@ class DisplayApp:
 
 
     def writeout(self, tracks):
-        with open('Output/' + self.vid_name + ' Tracks.csv', 'w', newline='') as csvfile:
+        out_file_name = os.path.join('Output', self.vid_name + ' Tracks.csv')
+        with open(out_file_name, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Time_of_track', 'Avg_area_of_mover', 'Distance_of_track'])
             for track in tracks:
                 writer.writerow(track)
 
     def makeTracks(self, moverslist):
+        # takes a list of movers positions and calculates all track data
+        # tracks is opencv data that is then used to draw lines
+        # track_summaries is the dataframe that gets written out
         tracks = []
         for m in moverslist: # go through frames
             for mover in m:
@@ -624,7 +636,7 @@ class DisplayApp:
                         tracks[track].append([cX, cY, area])
                     else:
                         tracks.append([[cX, cY, area]])
-        track_summaries = []
+        track_summaries = {'Time_of_track': [], 'Avg_area_of_mover': [], 'Distance_of_track': []}
         for track in tracks:
             sum_area = 0
             sum_distance = 0
@@ -635,7 +647,9 @@ class DisplayApp:
                     old_moment = track[x - 1]
                     d = (((moment[0] - old_moment[0]) ** 2) + ((moment[1] - old_moment[1]) ** 2)) ** 0.5
                     sum_distance += d
-            track_summaries.append([len(track), sum_area / len(track), sum_distance])
+            track_summaries['Time_of_track'].append(len(track))
+            track_summaries['Avg_area_of_mover'].append(sum_area / len(track))
+            track_summaries['Distance_of_track'].append(sum_distance)
 
         return tracks, track_summaries
 
