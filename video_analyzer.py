@@ -230,7 +230,8 @@ class DisplayApp:
         file = Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label='File', menu=file)
         file.add_command(label='Open Video', command=self.openvideofile)
-        file.add_command(label='Open Video Folder', command=None)
+        file.add_command(label='Make Masks from Video Folder', command=self.make_masks_for_folder)
+        file.add_command(label='Analyze Video Folder', command=self.open_video_folder)
         file.add_command(label='Quit', command=root.destroy)
 
         root.config(menu=self.menu)
@@ -260,6 +261,29 @@ class DisplayApp:
     def show_motion_detect_options(self):
         self.clear_frames()
         self.motion_detect_options_frame.grid(row=0, column=0)
+
+    def find_movie_files_in_folder(self, path):
+        files_list = []
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                if f.split('.')[1] in ['mp4', 'MP4', 'mov', 'MOV']:
+                    files_list.append([os.path.join(root, f), f])
+        return files_list
+
+    def open_video_folder(self):
+        folder = filedialog.askdirectory()
+        videos = self.find_movie_files_in_folder(folder)
+        print(videos)
+
+    def make_masks_for_folder(self):
+        folder = filedialog.askdirectory()
+        videos = self.find_movie_files_in_folder(folder)
+        for vid_path, vid_name in videos:
+            vid = CapturedVideo(vid_path)
+            mask = vid.get_frame(0)
+            name = vid_name.split('.')[0]
+            cv2.imwrite('Masks/' + name + '.png', mask)
+
 
     def openvideofile(self):
         path = filedialog.askopenfilename()
