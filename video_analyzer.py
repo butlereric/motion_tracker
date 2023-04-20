@@ -81,12 +81,16 @@ class DisplayApp:
         self.mask_intensity_level = 0.7
         self.write_to_one_file = IntVar()
         self.write_to_one_file.set(0)
-        self.persistent_data = pd.DataFrame({'Time_of_track': [], 'Avg_area_of_mover': [], 'Distance_of_track': []})
+        self.folder_name = ''
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.click_locations = []
         self.make_frames()
         self.make_menus()
+        self.make_or_reset_persistent_data()
+
+    def make_or_reset_persistent_data(self):
+        self.persistent_data = pd.DataFrame({'Time_of_track': [], 'Avg_area_of_mover': [], 'Distance_of_track': []})
 
     def make_frames(self):  # sets up grid for window
         self.tabbed_frame = ttk.Notebook(self.MainFrame)
@@ -280,6 +284,7 @@ class DisplayApp:
 
     def open_video_folder(self):
         folder = filedialog.askdirectory()
+        self.folder_name = folder.split('/')[-1]
         videos = self.find_movie_files_in_folder(folder)
         print(videos)
 
@@ -604,14 +609,16 @@ class DisplayApp:
         except FileNotFoundError:
             pass
 
-
-    def writeout(self, tracks):
-        out_file_name = os.path.join('Output', self.vid_name + ' Tracks.csv')
-        with open(out_file_name, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['Time_of_track', 'Avg_area_of_mover', 'Distance_of_track'])
-            for track in tracks:
-                writer.writerow(track)
+    def writeout(self, track_data):
+        df = pd.DataFrame(track_data)
+        if self.write_to_one_file.get() == 0:
+            self.make_or_reset_persistent_data()  # clear persistent data since we're not using it
+            out_file_name = os.path.join('Output', self.vid_name + ' Tracks.csv')
+            df.to_csv(out_file_name, index=False)
+        else:  # write to one file
+            out_file_name = os.path.join('Output', self.folder_name + ' Tracks.csv')
+            self.persistent_data = pd.merge(self.persistent_data, df)
+            self.persistent_data.to_csv(out_file_name, index=False)
 
     def makeTracks(self, moverslist):
         # takes a list of movers positions and calculates all track data
