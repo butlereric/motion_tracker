@@ -28,6 +28,7 @@ class CapturedVideo:
             raise ValueError("Unable to open video source", video)
         width = self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        fps = self.vid.get(cv2.CAP_PROP_FPS)
         delta1 = 900. / width
         delta2 = 600. / height
         self.delta = min(delta1, delta2)
@@ -81,7 +82,8 @@ class DisplayApp:
         self.mask_intensity_level = 0.7
         self.write_to_one_file = IntVar()
         self.write_to_one_file.set(0)
-        self.folder_name = ''
+        self.videos_list = []
+        self.folder_name = 'Main Output'
         self.MainFrame = Frame(self.AppParent)
         self.MainFrame.pack()
         self.click_locations = []
@@ -281,8 +283,17 @@ class DisplayApp:
     def open_video_folder(self):
         folder = filedialog.askdirectory()
         self.folder_name = folder.split('/')[-1]
-        videos = self.find_movie_files_in_folder(folder)
-        print(videos)
+        self.videos_list = self.find_movie_files_in_folder(folder)
+        self.go_to_next_video(start=True)
+
+    def go_to_next_video(self, start=False):
+        # checks to see if we're working through a list. If so, goes to next
+        if len(self.videos_list) > 0:
+            self.openvideofile(self.videos_list[0][0])
+            self.videos_list.remove(self.videos_list[0])
+            if not start:
+                self.analyze()
+
 
     def make_masks_for_folder(self):
         folder = filedialog.askdirectory()
@@ -294,8 +305,9 @@ class DisplayApp:
             cv2.imwrite('Masks/' + name + '.png', mask)
 
 
-    def openvideofile(self):
-        path = filedialog.askopenfilename()
+    def openvideofile(self, path=False):
+        if not path:
+            path = filedialog.askopenfilename()
         self.vid_name = os.path.basename(path).split('.')[0]
         self.vid = CapturedVideo(path)
         self.canvas = Canvas(self.VideoFrame, width = self.vid.width, height = self.vid.height)
@@ -441,6 +453,8 @@ class DisplayApp:
             can_run = False
         for x in range(start, end):
             ret, f = self.vid.get_frame(x)
+            if f.shape[:2] != self.mask.shape[:2]:
+                self.mask = np.multiply(np.ones(f.shape[:2], dtype=np.uint8), 255)
             masked_f = cv2.bitwise_and(f, f, mask=self.mask)
             fgmask = fgbg.apply(masked_f)
             # analyze
@@ -611,8 +625,12 @@ class DisplayApp:
             out_file_name = os.path.join('Output', self.vid_name + ' Tracks.csv')
             df.to_csv(out_file_name, index=False)
         else:  # write to one file
+            df['Video'] = self.vid_name
+            print(df.head())
+            print(self.folder_name)
             out_file_name = os.path.join('Output', self.folder_name + ' Tracks.csv')
             df.to_csv(out_file_name, index=False, mode='a')
+        self.Notifications.insert((1.0), 'Wrote out video ' + str(self.vid_name) + '\n')
 
     def makeTracks(self, moverslist):
         # takes a list of movers positions and calculates all track data
