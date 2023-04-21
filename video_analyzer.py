@@ -303,7 +303,7 @@ class DisplayApp:
         videos = self.find_movie_files_in_folder(folder)
         for vid_path, vid_name in videos:
             vid = CapturedVideo(vid_path)
-            mask = vid.get_frame(0)
+            mask = vid.get_frame(0)[1]
             name = vid_name.split('.')[0]
             cv2.imwrite('Masks/' + name + '.png', mask)
 
