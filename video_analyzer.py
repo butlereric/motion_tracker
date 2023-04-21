@@ -284,6 +284,9 @@ class DisplayApp:
         folder = filedialog.askdirectory()
         self.folder_name = folder.split('/')[-1]
         self.videos_list = self.find_movie_files_in_folder(folder)
+        out_file_name = os.path.join('Output', self.folder_name + ' Tracks.csv')
+        pd.DataFrame({'Time_of_track': [], 'Avg_area_of_mover': [], 'Distance_of_track': []}).to_csv(out_file_name,
+                                                                                                     index=False)
         self.go_to_next_video(start=True)
 
     def go_to_next_video(self, start=False):
@@ -351,6 +354,7 @@ class DisplayApp:
             self.optical_flow()
         else:
             self.movers_background_subtract()
+        self.go_to_next_video()
 
     def make_mask(self):
         if self.mask.shape == self.vid.get_frame(0)[1].shape:
@@ -626,10 +630,8 @@ class DisplayApp:
             df.to_csv(out_file_name, index=False)
         else:  # write to one file
             df['Video'] = self.vid_name
-            print(df.head())
-            print(self.folder_name)
             out_file_name = os.path.join('Output', self.folder_name + ' Tracks.csv')
-            df.to_csv(out_file_name, index=False, mode='a')
+            df.to_csv(out_file_name, index=False, mode='a', header=False)
         self.Notifications.insert((1.0), 'Wrote out video ' + str(self.vid_name) + '\n')
 
     def makeTracks(self, moverslist):
